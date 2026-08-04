@@ -1,0 +1,4 @@
+dist/
+/app-template
+*.wasm
+coverage.out

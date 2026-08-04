@@ -1,0 +1,72 @@
+# Copyright (c) 2026 the go-widgets/app-template authors. All rights reserved.
+# Use of this source code is governed by a BSD-3-Clause license.
+#
+# CI for the go-widgets application template. Two gates run on every push /
+# pull request:
+#
+#   build  — go vet, native `go test ./...` at 100% statement coverage, and a
+#            GOOS=js GOARCH=wasm build smoke.
+#   mvvm   — the shared MVVM gate (go-widgets/mvvmlint reusable workflow),
+#            which fails the build on any direct widget-state mutation. Mark it
+#            a REQUIRED status check in branch protection so non-MVVM code can
+#            never merge.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  GOWORK: "off"
+  CGO_ENABLED: "0"
+
+jobs:
+  build:
+    name: Native test + wasm build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.4"
+          check-latest: true
+          cache: true
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Native test with coverage
+        # main.go carries `//go:build js && wasm` so it drops out on native;
+        # viewmodel.go + scene.go are tagless and get 100% of statements from
+        # the test suite.
+        run: go test -coverprofile=coverage.out ./...
+
+      - name: Assert 100% statement coverage
+        run: |
+          total=$(go tool cover -func=coverage.out | awk 'END { gsub(/%/,"",$3); print $3 }')
+          echo "total coverage: ${total}%"
+          if [ "$(printf '%.0f' "$total")" != "100" ]; then
+            echo "::error::coverage below 100% (got ${total}%)"
+            go tool cover -func=coverage.out | grep -v "100.0%"
+            exit 1
+          fi
+
+      - name: Wasm build smoke
+        env:
+          GOOS: js
+          GOARCH: wasm
+        run: go build -o /tmp/app.wasm .
+
+  # The shared MVVM gate: installs go-widgets/mvvmlint and runs it as a
+  # `go vet` tool over the app, failing on any direct widget-state mutation.
+  # Baked in from commit #1 so the template — and everything copied from it —
+  # is MVVM-clean by default.
+  mvvm:
+    name: MVVM gate
+    uses: go-widgets/mvvmlint/.github/workflows/mvvmlint.yml@main

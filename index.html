@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>go-widgets app template</title>
+<meta name="description" content="A minimal, MVVM-compliant go-widgets browser wasm app: state in go-widgets/mvvm, widgets bound via go-widgets/mvvmtk, rendered by go-widgets/toolkit into a canvas, gated by go-widgets/mvvmlint.">
+<style>
+  html, body { margin: 0; background: #0b0d12; color: #e6e8f0; font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 24px 20px; text-align: center; }
+  h1 { font-size: 1.5rem; letter-spacing: -.02em; margin: 0 0 6px; }
+  .tagline { color: #9aa0b4; margin: 0 0 22px; }
+  #screen { display: block; margin: 0 auto; background: #ffffff; border: 1px solid #262c40; border-radius: 12px; max-width: 100%; height: auto; cursor: pointer; box-shadow: 0 12px 40px rgba(20,184,166,.15); }
+  .hint { color: #9aa0b4; font-size: .9rem; margin: 16px 0 24px; }
+  a { color: #14b8a6; }
+  footer { color: #9aa0b4; text-align: center; padding: 14px 0 40px; font-size: .85rem; }
+
+  /* Loading overlay + progress bar (shown while app.wasm downloads/instantiates). */
+  #loading { max-width: 480px; margin: 24px auto; }
+  #loading .plabel { color: #9aa0b4; font-size: .9rem; margin: 0 0 8px; }
+  #ptrack { height: 8px; background: #1b2130; border-radius: 999px; overflow: hidden; }
+  #pbar { height: 100%; width: 0; background: linear-gradient(90deg,#14b8a6,#0ea5e9); transition: width .12s ease; }
+  #ptrack.indeterminate #pbar { width: 40%; animation: slide 1.1s ease-in-out infinite; }
+  @keyframes slide { 0%{margin-left:-40%} 100%{margin-left:100%} }
+  #err { color: #ff5f57; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .85rem; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>go-widgets app template</h1>
+    <p class="tagline">A minimal, MVVM-compliant <a href="https://github.com/go-widgets">go-widgets</a> wasm app to copy.</p>
+
+    <!-- Loading progress bar — replaced by the canvas on success. -->
+    <div id="loading">
+      <p class="plabel" id="plabel">Loading the go-widgets app…</p>
+      <div id="ptrack" class="indeterminate"><div id="pbar"></div></div>
+    </div>
+
+    <canvas id="screen" width="480" height="420" style="display:none"></canvas>
+
+    <p class="hint">Type in the search box to filter by name; pick a category; press <strong>Clear</strong> to reset. The search text, the category index and the derived list all live in <a href="https://github.com/go-widgets/mvvm">go-widgets/mvvm</a> observables, bound to the widgets via <a href="https://github.com/go-widgets/mvvmtk">go-widgets/mvvmtk</a> and rendered by <a href="https://github.com/go-widgets/toolkit">go-widgets/toolkit</a>.</p>
+    <div id="err"></div>
+    <p><a href="https://github.com/go-widgets/app-template">source</a> · Use this template to start your own app</p>
+  </div>
+  <footer>BSD-3-Clause · pure Go · CGO=0 · MVVM-gated</footer>
+
+  <script>
+    // Defensive Go-wasm fs guard (wasm_exec.js only installs its fallback
+    // when globalThis.fs is absent). Page element ids avoid "fs"/"process"/"path".
+    (() => {
+      const g = globalThis;
+      if (!g.fs || typeof g.fs.writeSync !== "function") {
+        let buf = ""; const dec = new TextDecoder("utf-8");
+        g.fs = {
+          constants: { O_WRONLY: -1, O_RDWR: -1, O_CREAT: -1, O_TRUNC: -1, O_APPEND: -1, O_EXCL: -1, O_DIRECTORY: -1 },
+          writeSync(fd, b) { buf += dec.decode(b); const nl = buf.lastIndexOf("\n"); if (nl !== -1) { console.log(buf.substring(0, nl)); buf = buf.substring(nl + 1); } return b.length; },
+          write(fd, b, off, len, pos, cb) { const n = this.writeSync(fd, b.subarray(off, off + len)); cb(null, n); },
+        };
+      }
+    })();
+  </script>
+
+  <script src="wasm_exec.js"></script>
+
+  <script>
+    // ---- wasm boot with a real download progress bar ---------------------------
+    (async () => {
+      const el = (id) => document.getElementById(id);
+      const fail = (msg) => {
+        el("loading").style.display = "none";
+        el("err").textContent = "Failed to start the app: " + msg;
+      };
+      const setProgress = (frac) => {
+        const track = el("ptrack"), bar = el("pbar");
+        if (frac == null) { track.classList.add("indeterminate"); return; }
+        track.classList.remove("indeterminate");
+        bar.style.width = Math.max(0, Math.min(1, frac)) * 100 + "%";
+      };
+      if (typeof WebAssembly !== "object") { fail("WebAssembly is not supported by this browser."); return; }
+      try {
+        const resp = await fetch("app.wasm");
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        const total = +resp.headers.get("content-length") || 0;
+        const reader = resp.body && resp.body.getReader ? resp.body.getReader() : null;
+        let bytes;
+        if (reader) {
+          const chunks = []; let received = 0;
+          el("plabel").textContent = "Downloading the go-widgets app…";
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value); received += value.length;
+            setProgress(total ? received / total : null);
+          }
+          bytes = new Uint8Array(received); let off = 0;
+          for (const c of chunks) { bytes.set(c, off); off += c.length; }
+        } else {
+          setProgress(null);
+          bytes = new Uint8Array(await resp.arrayBuffer());
+        }
+        setProgress(1);
+        el("plabel").textContent = "Starting…";
+        const go = new Go();
+        const res = await WebAssembly.instantiate(bytes, go.importObject);
+        el("loading").style.display = "none";
+        el("screen").style.display = "block";
+        go.run(res.instance);
+      } catch (e) {
+        fail(e && e.message ? e.message : String(e));
+      }
+    })();
+  </script>
+</body>
+</html>
