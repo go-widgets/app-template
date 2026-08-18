@@ -35,8 +35,8 @@ func TestNewViewModelInitialState(t *testing.T) {
 	if got := vm.Visible.Len(); got != len(sampleItems()) {
 		t.Fatalf("Visible.Len() = %d, want %d", got, len(sampleItems()))
 	}
-	if vm.Status.Get() != "12 of 12 shown" {
-		t.Fatalf("Status = %q, want %q", vm.Status.Get(), "12 of 12 shown")
+	if vm.Status.Get() != "24 of 24 shown" {
+		t.Fatalf("Status = %q, want %q", vm.Status.Get(), "24 of 24 shown")
 	}
 	// The Clear command is disabled while no filter is active.
 	if vm.Clear.CanExecute() {
@@ -59,7 +59,7 @@ func TestQueryFilter(t *testing.T) {
 			t.Fatalf("row %q does not contain the query", n)
 		}
 	}
-	if vm.Status.Get() == "12 of 12 shown" {
+	if vm.Status.Get() == "24 of 24 shown" {
 		t.Fatalf("Status should reflect the narrowed set, got %q", vm.Status.Get())
 	}
 	// A filter is now active, so Clear is executable.

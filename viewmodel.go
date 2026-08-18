@@ -39,10 +39,22 @@ func sampleItems() []item {
 		{"mvvmlint", "state"},
 		{"painter", "render"},
 		{"svg", "render"},
+		{"raster", "render"},
+		{"canvas", "render"},
+		{"vector", "render"},
+		{"blend", "render"},
+		{"sprite", "render"},
+		{"atlas", "render"},
 		{"opentype", "text"},
 		{"shape", "text"},
 		{"bidi", "text"},
 		{"fonts", "text"},
+		{"unicode", "text"},
+		{"glyph", "text"},
+		{"harfbuzz", "text"},
+		{"layout", "text"},
+		{"kerning", "text"},
+		{"script", "text"},
 	}
 }
 

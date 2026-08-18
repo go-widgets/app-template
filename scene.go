@@ -69,6 +69,16 @@ type state struct {
 	clickables []toolkit.Widget
 	keyTarget  toolkit.Widget
 
+	// Pointer-drag capture: the widget grabbed on press, with its surface
+	// bounds, so a following EventMouseDrag / EventMouseUp routes back to it in
+	// its OWN local coordinates even as the pointer leaves its bounds. This is
+	// what lets a scrollbar thumb (or a Paned divider, a Scale handle, ...) be
+	// dragged: the browser driver forwards mousemove/mouseup here, and without
+	// this capture those events would be thrown away. Generic — no widget-type
+	// special-casing — so a copied app inherits working drags for free.
+	dragTarget toolkit.Widget
+	dragBounds toolkit.Rect
+
 	// dirty is raised by the binding invalidate hook whenever a
 	// ViewModel-originated change reaches a widget; the driver repaints when
 	// it is set. Bindings are retained in unbind for a clean teardown.
@@ -164,12 +174,17 @@ func (s *state) handleClick(x, y int) bool {
 	for _, w := range s.clickables {
 		r := w.Bounds()
 		if inside(x, y, r) {
+			// The hit widget also becomes the drag-capture target, so a
+			// following EventMouseDrag / EventMouseUp routes back to it (its
+			// scrollbar thumb, a Paned divider, ...). See handleDrag.
+			s.dragTarget, s.dragBounds = w, r
 			s.keyTarget = w
 			s.search.Focused = (w == toolkit.Widget(s.search))
 			w.OnEvent(local(ev(toolkit.EventClick, x, y), r))
 			return true
 		}
 	}
+	s.dragTarget = nil
 	s.keyTarget = nil
 	s.search.Focused = false
 	return true
@@ -208,10 +223,38 @@ func (s *state) handleKeyDown(code string) bool {
 	return true
 }
 
-// handleMove / handleRelease are no-op hover/drag hooks, kept so the wasm
-// driver can wire mousemove/mouseup uniformly with the gallery driver.
-func (s *state) handleMove(x, y int) bool    { _, _ = x, y; return false }
-func (s *state) handleRelease(x, y int) bool { _, _ = x, y; return false }
+// handleMove drives pointer motion: a captured drag first (dragging a
+// scrollbar thumb, a Paned divider, ...), else a no-op hover. The browser
+// driver forwards every mousemove here; returning true asks for a repaint.
+func (s *state) handleMove(x, y int) bool {
+	return s.handleDrag(x, y)
+}
+
+// handleDrag routes a pointer move (button held) to the widget grabbed on
+// press, as an EventMouseDrag in that widget's LOCAL coordinates (surface
+// minus the captured bounds) — which is where the toolkit hit-tests its
+// scrollbar thumb / divider. It reports whether a captured widget consumed
+// it. No-op (false) when nothing is captured, so a plain hover changes
+// nothing. Generic: it never inspects the widget's concrete type.
+func (s *state) handleDrag(x, y int) bool {
+	if s.dragTarget == nil {
+		return false
+	}
+	s.dragTarget.OnEvent(toolkit.Event{Kind: toolkit.EventMouseDrag, X: x - s.dragBounds.X, Y: y - s.dragBounds.Y})
+	return true
+}
+
+// handleRelease routes a button release to the captured widget as an
+// EventMouseUp (its local coordinates), then drops the capture. Reports
+// whether a captured widget consumed it.
+func (s *state) handleRelease(x, y int) bool {
+	if s.dragTarget == nil {
+		return false
+	}
+	s.dragTarget.OnEvent(toolkit.Event{Kind: toolkit.EventMouseUp, X: x - s.dragBounds.X, Y: y - s.dragBounds.Y})
+	s.dragTarget = nil
+	return true
+}
 
 // --- helpers ---------------------------------------------------------------
 
