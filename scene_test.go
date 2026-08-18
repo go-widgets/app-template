@@ -31,8 +31,8 @@ func TestNewStateBindsAndDraws(t *testing.T) {
 		t.Fatalf("list has %d items, want %d", len(s.list.Items), len(sampleItems()))
 	}
 	// The status Label starts populated from the ViewModel via BindLabel.
-	if s.status.Text != "12 of 12 shown" {
-		t.Fatalf("status = %q, want %q", s.status.Text, "12 of 12 shown")
+	if s.status.Text != "24 of 24 shown" {
+		t.Fatalf("status = %q, want %q", s.status.Text, "24 of 24 shown")
 	}
 	// draw must not panic and must paint the background (top-left pixel).
 	buf := newBuf()
@@ -169,7 +169,7 @@ func TestClearButtonResetsFilters(t *testing.T) {
 	}
 }
 
-func TestScrollAndNoopHandlers(t *testing.T) {
+func TestScrollAndUncapturedPointerMotion(t *testing.T) {
 	s := newState(surfaceW, surfaceH)
 	// A wheel scroll over the list is routed to the toolkit, which does the
 	// scroll math itself; the handler always requests a repaint.
@@ -177,12 +177,81 @@ func TestScrollAndNoopHandlers(t *testing.T) {
 	if !s.handleScroll(x, y, 3) {
 		t.Fatal("handleScroll should always repaint")
 	}
-	// Hover + release are no-ops in this scene.
+	// With NO drag captured (no preceding press on a draggable surface), a
+	// move/release changes nothing and is not consumed — a plain hover.
+	if s.dragTarget != nil {
+		t.Fatal("no press happened, so nothing should be captured")
+	}
 	if s.handleMove(x, y) {
-		t.Fatal("handleMove should be a no-op")
+		t.Fatal("handleMove with no capture should return false")
 	}
 	if s.handleRelease(x, y) {
-		t.Fatal("handleRelease should be a no-op")
+		t.Fatal("handleRelease with no capture should return false")
+	}
+}
+
+// TestPointerDragScrollsListThumb proves the pointer-drag routing end to end,
+// through the state's OWN handlers, using the ListBox's draggable scrollbar
+// thumb — the exact interaction that was silently broken while handleMove /
+// handleRelease were no-ops.
+//
+// RED/GREEN: with the old no-op handleMove the EventMouseDrag never reached the
+// list and ScrollRow would stay 0; with the fix it routes to the captured
+// widget in its local coordinates and the thumb drag scrolls the list.
+func TestPointerDragScrollsListThumb(t *testing.T) {
+	s := newState(surfaceW, surfaceH)
+
+	// The seeded catalog must overflow the list, otherwise there is no thumb to
+	// grab (the scene fix guarantees this — assert it so a future dataset edit
+	// that shrinks the list fails loudly here instead of silently voiding the
+	// test).
+	r := s.list.Bounds()
+	contentH := len(s.list.Items) * s.list.RowHeight
+	if contentH <= r.H {
+		t.Fatalf("list does not overflow (content %d <= bounds %d): no scrollbar thumb to drag", contentH, r.H)
+	}
+	if s.list.ScrollRow != 0 {
+		t.Fatalf("list should start at the top, got ScrollRow=%d", s.list.ScrollRow)
+	}
+
+	// Press ON the scrollbar thumb. The vertical thumb lives on the right edge
+	// (widget-local x in [W-scrollbarWidth, W)); at ScrollRow 0 it starts at the
+	// top of the track, so a press a couple of pixels down lands on it. Surface
+	// coordinates = list bounds + local offset.
+	thumbX := r.X + r.W - 2 // right-edge track column
+	thumbY := r.Y + 3       // near the top of the thumb
+	if !s.handleClick(thumbX, thumbY) {
+		t.Fatal("handleClick on the thumb should be consumed")
+	}
+	if s.dragTarget != toolkit.Widget(s.list) {
+		t.Fatal("pressing the list should capture it as the drag target")
+	}
+
+	// Drag DOWN. The captured drag routes an EventMouseDrag to the list in its
+	// local coordinates; the toolkit maps the thumb's new position back to a
+	// scroll offset. A downward drag must move the top row DOWN (ScrollRow up).
+	const delta = 90
+	if !s.handleMove(thumbX, thumbY+delta) {
+		t.Fatal("handleMove with a captured thumb should route the drag and repaint")
+	}
+	if s.list.ScrollRow <= 0 {
+		t.Fatalf("dragging the thumb down should scroll the list; ScrollRow=%d (was 0)", s.list.ScrollRow)
+	}
+	scrolled := s.list.ScrollRow
+
+	// Releasing dispatches EventMouseUp to the captured widget and drops the
+	// capture, so a later stray move does nothing.
+	if !s.handleRelease(thumbX, thumbY+delta) {
+		t.Fatal("handleRelease with a captured thumb should be consumed")
+	}
+	if s.dragTarget != nil {
+		t.Fatal("handleRelease must clear the drag capture")
+	}
+	if s.handleMove(thumbX, thumbY+2*delta) {
+		t.Fatal("after release, an uncaptured move must not be consumed")
+	}
+	if s.list.ScrollRow != scrolled {
+		t.Fatalf("post-release move must not scroll: ScrollRow=%d, want %d", s.list.ScrollRow, scrolled)
 	}
 }
 
