@@ -146,7 +146,7 @@ func (s *state) draw(buf []byte) {
 	fillBG(buf, s.theme.Background)
 	p := painter.NewPixelPainter(buf, s.w, s.h)
 	s.root.Draw(p, s.theme)
-	if s.cat.Open {
+	if s.cat.Open().Get() {
 		lb := toolkit.NewListBox(s.cat.Options)
 		lb.SetBounds(s.cat.PopoverBounds())
 		lb.Draw(p, s.theme)
@@ -161,12 +161,12 @@ func (s *state) draw(buf []byte) {
 // by BindSelectedIndex) updates the ViewModel — the app never writes the
 // widget's Selected field itself.
 func (s *state) handleClick(x, y int) bool {
-	if s.cat.Open {
+	if s.cat.Open().Get() {
 		pb := s.cat.PopoverBounds()
 		if inside(x, y, pb) {
 			s.cat.Select((y - pb.Y) / dropDownRowH)
 		} else {
-			s.cat.Open = false
+			s.cat.Open().Set(false)
 		}
 		return true
 	}
@@ -179,14 +179,14 @@ func (s *state) handleClick(x, y int) bool {
 			// scrollbar thumb, a Paned divider, ...). See handleDrag.
 			s.dragTarget, s.dragBounds = w, r
 			s.keyTarget = w
-			s.search.Focused = (w == toolkit.Widget(s.search))
+			s.search.SetFocused(w == toolkit.Widget(s.search))
 			w.OnEvent(local(ev(toolkit.EventClick, x, y), r))
 			return true
 		}
 	}
 	s.dragTarget = nil
 	s.keyTarget = nil
-	s.search.Focused = false
+	s.search.SetFocused(false)
 	return true
 }
 
