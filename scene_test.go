@@ -50,7 +50,7 @@ func TestSearchTypingFlowsThroughViewModel(t *testing.T) {
 	if !s.handleClick(center(s.search)) {
 		t.Fatal("handleClick(search) should report a repaint")
 	}
-	if !s.search.Focused || s.keyTarget != toolkit.Widget(s.search) {
+	if !s.search.Focused() || s.keyTarget != toolkit.Widget(s.search) {
 		t.Fatal("clicking the search box should focus it")
 	}
 
@@ -89,7 +89,7 @@ func TestKeyEventsWithoutFocusAreIgnored(t *testing.T) {
 	if !s.handleClick(0, 0) {
 		t.Fatal("handleClick on dead space still repaints")
 	}
-	if s.keyTarget != nil || s.search.Focused {
+	if s.keyTarget != nil || s.search.Focused() {
 		t.Fatal("clicking dead space should clear focus")
 	}
 	// With no key target, char + key events are not consumed.
@@ -107,10 +107,10 @@ func TestDropdownSelectViaPopover(t *testing.T) {
 	// Clicking the dropdown opens its popover (and does NOT focus the search
 	// box — the false branch of the focus assignment).
 	s.handleClick(center(s.cat))
-	if !s.cat.Open {
+	if !s.cat.Open().Get() {
 		t.Fatal("clicking the dropdown should open the popover")
 	}
-	if s.search.Focused {
+	if s.search.Focused() {
 		t.Fatal("clicking the dropdown must not focus the search box")
 	}
 
@@ -121,7 +121,7 @@ func TestDropdownSelectViaPopover(t *testing.T) {
 	// fires the composed OnSelect (from BindSelectedIndex), updating the VM.
 	pb := s.cat.PopoverBounds()
 	s.handleClick(pb.X+4, pb.Y+2*dropDownRowH+3)
-	if s.cat.Open {
+	if s.cat.Open().Get() {
 		t.Fatal("selecting an option should close the popover")
 	}
 	if s.vm.Category.Get() != 2 || s.vm.selectedCategory() != "state" {
@@ -137,12 +137,12 @@ func TestDropdownSelectViaPopover(t *testing.T) {
 func TestDropdownClickOutsideDismisses(t *testing.T) {
 	s := newState(surfaceW, surfaceH)
 	s.handleClick(center(s.cat)) // open
-	if !s.cat.Open {
+	if !s.cat.Open().Get() {
 		t.Fatal("popover should be open")
 	}
 	// A click outside the popover bounds dismisses it without selecting.
 	s.handleClick(0, 0)
-	if s.cat.Open {
+	if s.cat.Open().Get() {
 		t.Fatal("clicking outside should close the popover")
 	}
 	if s.vm.Category.Get() != 0 {
@@ -210,8 +210,8 @@ func TestPointerDragScrollsListThumb(t *testing.T) {
 	if contentH <= r.H {
 		t.Fatalf("list does not overflow (content %d <= bounds %d): no scrollbar thumb to drag", contentH, r.H)
 	}
-	if s.list.ScrollRow != 0 {
-		t.Fatalf("list should start at the top, got ScrollRow=%d", s.list.ScrollRow)
+	if s.list.ScrollRow().Get() != 0 {
+		t.Fatalf("list should start at the top, got ScrollRow=%d", s.list.ScrollRow().Get())
 	}
 
 	// Press ON the scrollbar thumb. The vertical thumb lives on the right edge
@@ -234,10 +234,10 @@ func TestPointerDragScrollsListThumb(t *testing.T) {
 	if !s.handleMove(thumbX, thumbY+delta) {
 		t.Fatal("handleMove with a captured thumb should route the drag and repaint")
 	}
-	if s.list.ScrollRow <= 0 {
-		t.Fatalf("dragging the thumb down should scroll the list; ScrollRow=%d (was 0)", s.list.ScrollRow)
+	if s.list.ScrollRow().Get() <= 0 {
+		t.Fatalf("dragging the thumb down should scroll the list; ScrollRow=%d (was 0)", s.list.ScrollRow().Get())
 	}
-	scrolled := s.list.ScrollRow
+	scrolled := s.list.ScrollRow().Get()
 
 	// Releasing dispatches EventMouseUp to the captured widget and drops the
 	// capture, so a later stray move does nothing.
@@ -250,8 +250,8 @@ func TestPointerDragScrollsListThumb(t *testing.T) {
 	if s.handleMove(thumbX, thumbY+2*delta) {
 		t.Fatal("after release, an uncaptured move must not be consumed")
 	}
-	if s.list.ScrollRow != scrolled {
-		t.Fatalf("post-release move must not scroll: ScrollRow=%d, want %d", s.list.ScrollRow, scrolled)
+	if s.list.ScrollRow().Get() != scrolled {
+		t.Fatalf("post-release move must not scroll: ScrollRow=%d, want %d", s.list.ScrollRow().Get(), scrolled)
 	}
 }
 
