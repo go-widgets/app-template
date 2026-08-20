@@ -30,9 +30,11 @@ func TestNewStateBindsAndDraws(t *testing.T) {
 	if len(s.list.Items) != len(sampleItems()) {
 		t.Fatalf("list has %d items, want %d", len(s.list.Items), len(sampleItems()))
 	}
-	// The status Label starts populated from the ViewModel via BindLabel.
-	if s.status.Text != "24 of 24 shown" {
-		t.Fatalf("status = %q, want %q", s.status.Text, "24 of 24 shown")
+	// The status Label starts populated from the ViewModel via BindLabel. Its
+	// text is an observable rather than a field, so the binding is what is
+	// being read here and not a value somebody copied into place.
+	if got := s.status.Text().Get(); got != "24 of 24 shown" {
+		t.Fatalf("status = %q, want %q", got, "24 of 24 shown")
 	}
 	// draw must not panic and must paint the background (top-left pixel).
 	buf := newBuf()
