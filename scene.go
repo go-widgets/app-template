@@ -35,11 +35,6 @@ const (
 	searchH = 26
 	ctrlH   = 28
 	clearW  = 96
-
-	// dropDownRowH is the pixel height of one row in the category
-	// DropDown's popover, used to map a popover click back to an option
-	// index (mirrors the toolkit's PopoverBounds row step).
-	dropDownRowH = 18
 )
 
 // state is the View: the widgets, their box layout, the bound ViewModel,
@@ -141,33 +136,29 @@ func newState(w, _ int) *state {
 
 // draw paints the whole scene onto buf (an RGBA row-major slice) via a
 // PixelPainter: background, then the box layout, then the category
-// popover (which floats above the list when open).
+// popover (which floats above the list when open). The popover is the
+// persistent DropDown's OWN surface, painted through DrawPopover (a no-op
+// when the DropDown is closed) — the host constructs no throwaway widget
+// and hand-renders nothing; it only owns the z-order by drawing it last.
 func (s *state) draw(buf []byte) {
 	fillBG(buf, s.theme.Background)
 	p := painter.NewPixelPainter(buf, s.w, s.h)
 	s.root.Draw(p, s.theme)
-	if s.cat.Open().Get() {
-		lb := toolkit.NewListBox(s.cat.Options)
-		lb.SetBounds(s.cat.PopoverBounds())
-		lb.Draw(p, s.theme)
-	}
+	s.cat.DrawPopover(p, s.theme)
 }
 
 // handleClick dispatches a click at surface (x, y). An open popover floats
-// above everything: a click inside selects that option, a click outside
-// dismisses it. Otherwise the click routes to whichever widget contains it
-// (focusing the SearchEntry, clearing focus elsewhere). Selecting a
-// popover row goes through DropDown.Select, whose composed OnSelect (wired
-// by BindSelectedIndex) updates the ViewModel — the app never writes the
+// above everything: the toolkit owns its hit-testing via PopoverClick,
+// which selects the option row inside it (a click outside just dismisses
+// it) and reports whether it consumed the click — true only while the
+// popover is open, so a closed DropDown falls through to normal routing.
+// Otherwise the click routes to whichever widget contains it (focusing the
+// SearchEntry, clearing focus elsewhere). A selected popover row goes
+// through DropDown.Select, whose composed OnSelect (wired by
+// BindSelectedIndex) updates the ViewModel — the app never writes the
 // widget's Selected field itself.
 func (s *state) handleClick(x, y int) bool {
-	if s.cat.Open().Get() {
-		pb := s.cat.PopoverBounds()
-		if inside(x, y, pb) {
-			s.cat.Select((y - pb.Y) / dropDownRowH)
-		} else {
-			s.cat.Open().Set(false)
-		}
+	if s.cat.PopoverClick(x, y) {
 		return true
 	}
 
