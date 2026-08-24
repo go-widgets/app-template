@@ -116,13 +116,18 @@ func TestDropdownSelectViaPopover(t *testing.T) {
 		t.Fatal("clicking the dropdown must not focus the search box")
 	}
 
-	// draw with the popover open exercises the overlay branch.
+	// draw with the popover open exercises the DrawPopover overlay branch —
+	// the toolkit paints the popover from the PERSISTENT s.cat DropDown, so
+	// no throwaway widget is constructed per frame.
 	s.draw(newBuf())
 
 	// Click option index 2 ("state") inside the popover: DropDown.Select
 	// fires the composed OnSelect (from BindSelectedIndex), updating the VM.
+	// The row step is derived from the toolkit's own PopoverBounds (height /
+	// option count) rather than a hand-kept mirror constant.
 	pb := s.cat.PopoverBounds()
-	s.handleClick(pb.X+4, pb.Y+2*dropDownRowH+3)
+	rowStep := pb.H / len(s.cat.Options)
+	s.handleClick(pb.X+4, pb.Y+2*rowStep+3)
 	if s.cat.Open().Get() {
 		t.Fatal("selecting an option should close the popover")
 	}
