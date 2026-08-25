@@ -1,15 +1,21 @@
 # Copyright (c) 2026 the go-widgets/app-template authors. All rights reserved.
 # Use of this source code is governed by a BSD-3-Clause license.
 #
-# CI for the go-widgets application template. Two gates run on every push /
+# CI for the go-widgets application template. Three gates run on every push /
 # pull request:
 #
-#   build  — go vet, native `go test ./...` at 100% statement coverage, and a
-#            GOOS=js GOARCH=wasm build smoke.
-#   mvvm   — the shared MVVM gate (go-widgets/mvvmlint reusable workflow),
-#            which fails the build on any direct widget-state mutation. Mark it
-#            a REQUIRED status check in branch protection so non-MVVM code can
-#            never merge.
+#   build      — go vet, native `go test ./...` at 100% statement coverage, and
+#                a GOOS=js GOARCH=wasm build smoke.
+#   mvvm       — the shared MVVM gate (go-widgets/mvvmlint reusable workflow),
+#                which fails the build on any direct widget-state mutation. Mark
+#                it a REQUIRED status check in branch protection so non-MVVM code
+#                can never merge.
+#   bricolint  — the hand-drawn-UI gate (go-widgets/bricolint as a `go vet`
+#                tool): fails the build on any painter drawing primitive called
+#                in app code, or a toolkit.New<Widget> built inside a Draw/Paint/
+#                Render method. A negative-control script proves the guard still
+#                bites. Mark it a REQUIRED status check too so no copied app can
+#                reintroduce hand-drawn chrome.
 name: CI
 
 on:
@@ -70,3 +76,32 @@ jobs:
   mvvm:
     name: MVVM gate
     uses: go-widgets/mvvmlint/.github/workflows/mvvmlint.yml@main
+
+  # The hand-drawn-UI gate: installs go-widgets/bricolint and runs it as a
+  # `go vet` tool over the app, failing on any painter drawing primitive in
+  # application code (or a toolkit.New<Widget> constructed inside a Draw/Paint/
+  # Render method). The negative-control step then PROVES the guard can still
+  # bite — a green vet alone only shows the guard is silent, not that it is
+  # live. Baked into the template so every copied app is hand-drawn-UI-clean.
+  bricolint:
+    name: Hand-drawn-UI gate
+    runs-on: ubuntu-latest
+    env:
+      GOWORK: "off"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.4"
+          check-latest: true
+          cache: true
+
+      - name: Install bricolint
+        run: go install github.com/go-widgets/bricolint/cmd/bricolint@v0.1.0
+
+      - name: Guard against hand-drawn UI
+        run: go vet -vettool="$(go env GOPATH)/bin/bricolint" ./...
+
+      - name: Negative control (the guard must bite)
+        run: BRICOLINT="$(go env GOPATH)/bin/bricolint" bash hack/bricolint-negative-control.sh
