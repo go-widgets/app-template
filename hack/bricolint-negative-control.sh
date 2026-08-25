@@ -53,11 +53,15 @@ guard() {
   echo $?
 }
 
-# Always restore the pristine file, however we leave.
+# Always restore the pristine file, however we leave — but ONLY once a real
+# backup has been taken. `restore_armed` guards against a failure before the cp
+# below causing the trap to copy an empty temp over $target and wipe it; the
+# [ -s ] check refuses to restore an empty backup even then.
 backup="$(mktemp)"
-cp "$target" "$backup"
-restore() { cp "$backup" "$target"; rm -f "$backup"; }
+restore_armed=0
+restore() { [ "$restore_armed" = 1 ] && [ -s "$backup" ] && cp "$backup" "$target"; rm -f "$backup"; return 0; }
 trap restore EXIT
+cp "$target" "$backup"; restore_armed=1
 
 echo "==> 1/3 clean tree: guard must pass (exit 0)"
 rc=$(guard)
