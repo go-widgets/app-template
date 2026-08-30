@@ -5,7 +5,7 @@ go 1.26.4
 require (
 	github.com/go-widgets/mvvm v0.8.0
 	github.com/go-widgets/mvvmtk v0.12.0
-	github.com/go-widgets/painter v0.11.0
+	github.com/go-widgets/painter v0.12.0
 	github.com/go-widgets/toolkit v0.241.0
 )
 
