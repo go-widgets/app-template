@@ -1,6 +1,6 @@
 module github.com/go-widgets/app-template
 
-go 1.26.4
+go 1.27.1
 
 require (
 	github.com/go-widgets/mvvm v0.9.0
