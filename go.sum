@@ -32,8 +32,8 @@ github.com/go-richdoc/richdoc v0.4.0 h1:oLhMdRXRRZr3RW6Zqra3N6k5nOX6GFmvgyDpMKEB
 github.com/go-richdoc/richdoc v0.4.0/go.mod h1:aCX8ulqg5CoKqSWgWeEWul1Oj0d2VxQeaQNI0+jsm7c=
 github.com/go-typeset/bidi v0.3.0 h1:4fjGjejvjE2LzLNzY4si8PkVO321NcsKIiANhWT3jF4=
 github.com/go-typeset/bidi v0.3.0/go.mod h1:ct3cmYT8Qt1FGJQ+2QaakrUxqaP4ZysgdQQg2ym5+Xo=
-github.com/go-widgets/mvvm v0.13.0 h1:cfBIsT29StK0gknb4jqiOQhKZNcWf+PUR/jYpuoHmm0=
-github.com/go-widgets/mvvm v0.13.0/go.mod h1:9DjoZRoUkdBcMd0KeiN6T6zWCjOR1enX1Rmcj96WDFY=
+github.com/go-widgets/mvvm v0.14.0 h1:T7rDfZkoaWLycULc8XC6ZXYE0fBMhQgqkZRahPRBSS8=
+github.com/go-widgets/mvvm v0.14.0/go.mod h1:LF77YW5D9sfgpS1WBP3uMG4gV4QfJhRUmFfUNPXxPlg=
 github.com/go-widgets/mvvmtk v0.14.1 h1:JMuOXLylXDd0uU5ca9NOHUhStgPy5DNtSxLrYzVG8DE=
 github.com/go-widgets/mvvmtk v0.14.1/go.mod h1:fEJTlTKR+6WH3BFQ2D+0J8ORZ1vPhoHAKPVX0nzZ2sI=
 github.com/go-widgets/painter v0.15.0 h1:0oeaRDTPcIe5/b0wHtYbAUsnReoidkSapr8y+iZJwDk=
